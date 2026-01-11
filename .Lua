@@ -607,6 +607,51 @@ local function setActiveTable(key)
 	activeSet, activeVariantToDisplay = buildActiveMaps(activeOres)
 end
 
+
+-- =================================
+-- ORE SELECTION (checkbox per ore, per tab)
+-- =================================
+local oreSelectionByKey = {} -- [tableKey] = { [displayOreName] = true/false }
+local activeSelection = nil
+
+local function ensureSelectionForKey(key)
+	if oreSelectionByKey[key] then return oreSelectionByKey[key] end
+	local map = {}
+	for _, oreName in ipairs(ORE_TABLES[key] or {}) do
+		map[oreName] = true -- default: checked
+	end
+	oreSelectionByKey[key] = map
+	return map
+end
+
+do
+	local _setActiveTable = setActiveTable
+	function setActiveTable(key)
+		if not ORE_TABLES[key] then return end
+		_setActiveTable(key)
+		activeSelection = ensureSelectionForKey(key)
+	end
+end
+
+local function getSelectedListForKey(key)
+	local sel = ensureSelectionForKey(key)
+	local out = {}
+	for _, oreName in ipairs(ORE_TABLES[key] or {}) do
+		if sel[oreName] == true then
+			table.insert(out, oreName)
+		end
+	end
+	return out
+end
+
+local function buildSelectedSetForKey(key)
+	-- returns a robust variants set like your other code uses
+	local list = getSelectedListForKey(key)
+	return select(1, buildActiveMaps(list))
+end
+
+
+
 -- =================================
 -- UI
 -- =================================
@@ -874,12 +919,16 @@ end
 
 local function clearRows()
 	for _, child in ipairs(list:GetChildren()) do
-		if child:IsA("TextLabel") then child:Destroy() end
+		if child:IsA("Frame") or child:IsA("TextLabel") then
+			child:Destroy()
+		end
 	end
 end
 
 local function refreshScannerUI()
 	clearRows()
+	activeSelection = activeSelection or ensureSelectionForKey(activeKey)
+
 	local counts = scanCountsActive()
 
 	for _, oreName in ipairs(activeOres) do
@@ -887,21 +936,65 @@ local function refreshScannerUI()
 		local r, g, b = rgb(c)
 		local count = counts[oreName] or 0
 
+		local rowFrame = Instance.new("Frame")
+		rowFrame.BackgroundTransparency = 1
+		rowFrame.Size = UDim2.new(1, 0, 0, 22)
+		rowFrame.ZIndex = 1
+		rowFrame.Parent = list
+
+		local checkBtn = Instance.new("TextButton")
+		checkBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		checkBtn.BorderSizePixel = 0
+		checkBtn.Position = UDim2.fromOffset(0, 2)
+		checkBtn.Size = UDim2.fromOffset(18, 18)
+		checkBtn.Font = Enum.Font.GothamBold
+		checkBtn.TextSize = 14
+		checkBtn.TextColor3 = Color3.fromRGB(235, 235, 235)
+		checkBtn.ZIndex = 2
+		checkBtn.Parent = rowFrame
+		local cc = Instance.new("UICorner")
+		cc.CornerRadius = UDim.new(0, 4)
+		cc.Parent = checkBtn
+
+		local function renderCheck()
+			checkBtn.Text = (activeSelection[oreName] == true) and "✓" or ""
+		end
+		renderCheck()
+
+		checkBtn.MouseButton1Click:Connect(function()
+			activeSelection[oreName] = not (activeSelection[oreName] == true)
+			renderCheck()
+		end)
+
 		local lbl = Instance.new("TextLabel")
 		lbl.BackgroundTransparency = 1
-		lbl.Size = UDim2.new(1, 0, 0, 20)
+		lbl.Position = UDim2.fromOffset(24, 0)
+		lbl.Size = UDim2.new(1, -24, 1, 0)
 		lbl.RichText = true
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
 		lbl.Font = Enum.Font.Gotham
 		lbl.TextSize = 13
 		lbl.ZIndex = 1
-		lbl.Text = string.format(
-			'<font color="rgb(%d,%d,%d)">%s</font> <font color="rgb(200,200,200)">%d</font>',
-			r, g, b, oreName, count
-		)
-		lbl.Parent = list
+		local checked = (activeSelection[oreName] == true)
+
+if checked then
+	-- normal (colored) look
+	lbl.Text = string.format(
+		'<font color="rgb(%d,%d,%d)">%s</font> <font color="rgb(200,200,200)">%d</font>',
+		r, g, b, oreName, count
+	)
+else
+	-- greyed out / disabled look
+	lbl.Text = string.format(
+		'<font color="rgb(140,140,140)">%s</font> <font color="rgb(120,120,120)">%d</font>',
+		oreName, count
+	)
+end
+
+		lbl.Parent = rowFrame
 	end
 end
+
 
 -- =================================
 -- CHIPS (dynamic based on dropdown category)
@@ -1086,6 +1179,68 @@ local function waitUntilOreGone(ore, maxSeconds)
 end
 
 -- =================================
+-- NOCLIP (ONLY during TP)
+-- =================================
+local noclipOn = false
+local noclipConn = nil
+local savedCanCollide = {} -- [BasePart] = originalCanCollide
+
+local function applyNoclipToCharacter(char: Model)
+	for _, inst in ipairs(char:GetDescendants()) do
+		if inst:IsA("BasePart") then
+			if savedCanCollide[inst] == nil then
+				savedCanCollide[inst] = inst.CanCollide
+			end
+			inst.CanCollide = false
+		end
+	end
+end
+
+local function restoreCharacterCollisions()
+	for part, original in pairs(savedCanCollide) do
+		if part and part.Parent then
+			part.CanCollide = original
+		end
+	end
+	table.clear(savedCanCollide)
+end
+
+local function enableNoclip()
+	if noclipOn then return end
+	noclipOn = true
+
+	local function step()
+		if not noclipOn then return end
+		local char = player.Character
+		if char then
+			applyNoclipToCharacter(char)
+		end
+	end
+
+	noclipConn = RunService.Stepped:Connect(step)
+	step()
+end
+
+local function disableNoclip()
+	if not noclipOn then return end
+	noclipOn = false
+	if noclipConn then
+		noclipConn:Disconnect()
+		noclipConn = nil
+	end
+	restoreCharacterCollisions()
+end
+
+player.CharacterAdded:Connect(function()
+	-- If they respawn mid-TP, keep noclip applied.
+	if noclipOn then
+		task.wait(0.1)
+		local char = player.Character
+		if char then applyNoclipToCharacter(char) end
+	end
+end)
+
+-- =================================
 -- ORE TELEPORT (mined grows, /total stays fixed)
 -- =================================
 local runningTP = false
@@ -1096,9 +1251,18 @@ local function runOreLoop()
 	tpButton.Text = "TP : RUN"
 
 	local myKey = activeKey
-	local mySet = activeSet
+local mySet = buildSelectedSetForKey(myKey) -- ONLY checked ores
 
-	local totalAtStart = countSpawnedForSet(mySet)
+-- If nothing is checked, don't run
+if not mySet or next(mySet) == nil then
+	progressLbl.Text = "TP Progress: (check at least 1 ore)"
+	tpButton.Text = "Start TP"
+	runningTP = false
+	return
+end
+
+local totalAtStart = countSpawnedForSet(mySet)
+
 
 	tpProgress[myKey].running = true
 	tpProgress[myKey].mined = 0
@@ -1108,12 +1272,20 @@ local function runOreLoop()
 	local platform = createPlatform()
 
 	task.spawn(function()
-		if totalAtStart <= 0 then
-			tpProgress[myKey].running = false
-			if activeKey == myKey then updateProgressLabel() end
+		-- Turn on noclip for the whole TP process
+		enableNoclip()
+
+		local function finish()
+			disableNoclip()
 			if platform then platform:Destroy() end
 			tpButton.Text = "Start TP"
 			runningTP = false
+			tpProgress[myKey].running = false
+			if activeKey == myKey then updateProgressLabel() end
+		end
+
+		if totalAtStart <= 0 then
+			finish()
 			return
 		end
 
@@ -1141,12 +1313,7 @@ local function runOreLoop()
 			end
 		end
 
-		if platform then platform:Destroy() end
-		tpButton.Text = "Start TP"
-		runningTP = false
-
-		tpProgress[myKey].running = false
-		if activeKey == myKey then updateProgressLabel() end
+		finish()
 	end)
 end
 
@@ -1200,3 +1367,9 @@ updateHC()
 setCategory("W1 Gear")
 refreshScannerUI()
 updateProgressLabel()
+local function setActiveTable(key)
+	if not ORE_TABLES[key] then return end
+	activeKey = key
+	activeOres = ORE_TABLES[key]
+	activeSet, activeVariantToDisplay = buildActiveMaps(activeOres)
+end
