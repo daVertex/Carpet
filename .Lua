@@ -47,7 +47,7 @@ end
 -- =================================
 -- IONIZED ATTRIBUTE CHECK
 -- Supports:
---   ore:GetAttribute("variantType") == "ionized"   (your screenshot)
+--   ore:GetAttribute("variantType") == "ionized"  
 --   ore:GetAttribute("Ionized") == true / "ionized" (optional support)
 -- Works for BasePart or Model (checks model + primary/first part)
 -- =================================
