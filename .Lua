@@ -45,6 +45,40 @@ local function variants(s: string)
 end
 
 -- =================================
+-- IONIZED ATTRIBUTE CHECK
+-- Supports:
+--   ore:GetAttribute("variantType") == "ionized"   (your screenshot)
+--   ore:GetAttribute("Ionized") == true / "ionized" (optional support)
+-- Works for BasePart or Model (checks model + primary/first part)
+-- =================================
+local function isIonizedOre(obj)
+	local function readAttr(o)
+		if not o or typeof(o.GetAttribute) ~= "function" then return nil end
+
+		local vt = o:GetAttribute("variantType")
+		if vt ~= nil then return vt end
+
+		return o:GetAttribute("Ionized")
+	end
+
+	local v = readAttr(obj)
+
+	-- If it's a Model and the attribute isn't on the Model, try its parts
+	if v == nil and obj and obj:IsA("Model") then
+		v = readAttr(obj.PrimaryPart)
+		if v == nil then
+			local part = obj:FindFirstChildWhichIsA("BasePart", true)
+			v = readAttr(part)
+		end
+	end
+
+	if v == nil then return false end
+	if type(v) == "boolean" then return v end
+	if type(v) == "string" then return string.lower(v) == "ionized" end
+	return false
+end
+
+-- =================================
 -- ORE TABLES (all lowercase)
 -- =================================
 local ORE_TABLES = {}
@@ -52,10 +86,27 @@ local ORE_TABLES = {}
 -- ============ W1 Gear ============
 -- Cyber R (default)
 ORE_TABLES.default = {
-	"inclemetite","bulbalescense","cybernetium","glacielle","azuryl","nauticalis",
-	"snoblintium","freon","nuummite","nocturnite","elysian","tanzanite",
-	"cobalt","bluesteel","lavendulan",
+	"cybernetium",
+	"cryotic",
+	"nuummite",
+	"elysian",
+	"tanzanite",
+	"lavendulan",
+
+	"__IONIZED__",
+	"hemimorphite",
+
+	"bluesteel",
+	"cobalt",
+	"turquenite",
+	"druzurite",
+	"iron",
+	"crystallized Stone",
+	"ice",
 }
+
+
+
 
 -- Lucy L
 ORE_TABLES.lucy = {
@@ -604,8 +655,32 @@ local function setActiveTable(key)
 	if not ORE_TABLES[key] then return end
 	activeKey = key
 	activeOres = ORE_TABLES[key]
+    
 	activeSet, activeVariantToDisplay = buildActiveMaps(activeOres)
 end
+
+local IONIZED_MARKER = "__IONIZED__"
+
+local function buildIonizedMarkedSet(list)
+	local set = {}
+	local nextIsIonized = false
+
+	for _, name in ipairs(list) do
+		if name == IONIZED_MARKER then
+			nextIsIonized = true
+		else
+			if nextIsIonized then
+				set[name] = true
+				nextIsIonized = false -- ONLY the next ore gets tagged
+			end
+		end
+	end
+
+	return set
+end
+
+
+local activeIonizedMarked = buildIonizedMarkedSet(activeOres)
 
 
 -- =================================
@@ -618,8 +693,11 @@ local function ensureSelectionForKey(key)
 	if oreSelectionByKey[key] then return oreSelectionByKey[key] end
 	local map = {}
 	for _, oreName in ipairs(ORE_TABLES[key] or {}) do
-		map[oreName] = true -- default: checked
+	if oreName ~= IONIZED_MARKER then
+		map[oreName] = true
 	end
+end
+
 	oreSelectionByKey[key] = map
 	return map
 end
@@ -887,11 +965,20 @@ local function countSpawnedForSet(setTbl)
 	for _, obj in ipairs(mine:GetChildren()) do
 		local raw, stripped = variants(obj.Name)
 		if setTbl[raw] or (stripped ~= "" and setTbl[stripped]) then
-			n += 1
+			local display = activeVariantToDisplay[raw] or (stripped ~= "" and activeVariantToDisplay[stripped]) or nil
+			if display and activeIonizedMarked[display] then
+				if isIonizedOre(obj) then
+					n += 1
+				end
+			else
+				n += 1
+			end
 		end
 	end
 	return n
 end
+
+
 
 -- =================================
 -- SCANNER DISPLAY (refresh every 2s)
@@ -903,19 +990,28 @@ end
 local function scanCountsActive()
 	local counts = {}
 	for _, displayName in ipairs(activeOres) do
-		counts[displayName] = 0
+		if displayName ~= IONIZED_MARKER then
+			counts[displayName] = 0
+		end
 	end
 
 	for _, obj in ipairs(mine:GetChildren()) do
 		local raw, stripped = variants(obj.Name)
 		local display = activeVariantToDisplay[raw] or (stripped ~= "" and activeVariantToDisplay[stripped]) or nil
 		if display and counts[display] ~= nil then
-			counts[display] += 1
+			if activeIonizedMarked[display] then
+				if isIonizedOre(obj) then
+					counts[display] += 1
+				end
+			else
+				counts[display] += 1
+			end
 		end
 	end
 
 	return counts
 end
+
 
 local function clearRows()
 	for _, child in ipairs(list:GetChildren()) do
@@ -932,6 +1028,10 @@ local function refreshScannerUI()
 	local counts = scanCountsActive()
 
 	for _, oreName in ipairs(activeOres) do
+		if oreName == IONIZED_MARKER then
+			continue
+		end
+
 		local c = getOreColor(oreName)
 		local r, g, b = rgb(c)
 		local count = counts[oreName] or 0
@@ -942,6 +1042,7 @@ local function refreshScannerUI()
 		rowFrame.ZIndex = 1
 		rowFrame.Parent = list
 
+		-- Checkbox
 		local checkBtn = Instance.new("TextButton")
 		checkBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 		checkBtn.BorderSizePixel = 0
@@ -952,6 +1053,7 @@ local function refreshScannerUI()
 		checkBtn.TextColor3 = Color3.fromRGB(235, 235, 235)
 		checkBtn.ZIndex = 2
 		checkBtn.Parent = rowFrame
+
 		local cc = Instance.new("UICorner")
 		cc.CornerRadius = UDim.new(0, 4)
 		cc.Parent = checkBtn
@@ -966,34 +1068,72 @@ local function refreshScannerUI()
 			renderCheck()
 		end)
 
+		local checked = (activeSelection[oreName] == true)
+		local isIonizedMarked = (activeIonizedMarked[oreName] == true)
+
+		-- Animated IONIZED label (separate so it can have UIGradient)
+		local ionTagWidth = 0
+		if isIonizedMarked then
+			local ionTag = Instance.new("TextLabel")
+			ionTag.BackgroundTransparency = 1
+			ionTag.Position = UDim2.fromOffset(24, 0) -- after checkbox
+			ionTag.Size = UDim2.fromOffset(70, 22)
+			ionTag.Font = Enum.Font.GothamBold
+			ionTag.TextSize = 13
+			ionTag.TextXAlignment = Enum.TextXAlignment.Left
+			ionTag.Text = "IONIZED"
+			ionTag.TextColor3 = Color3.new(1, 1, 1)
+			ionTag.ZIndex = 2
+			ionTag.Parent = rowFrame
+
+			local grad = Instance.new("UIGradient")
+			grad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.00, Color3.fromRGB(0, 0, 0)),
+				ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 0)),
+				ColorSequenceKeypoint.new(1.00, Color3.fromRGB(0, 0, 0)),
+			})
+			grad.Offset = Vector2.new(-1, 0)
+			grad.Parent = ionTag
+
+			task.spawn(function()
+				while ionTag.Parent do
+					grad.Offset = Vector2.new(grad.Offset.X + 0.03, 0)
+					if grad.Offset.X > 1 then
+						grad.Offset = Vector2.new(-1, 0)
+					end
+					task.wait(0.03)
+				end
+			end)
+
+			ionTagWidth = 70
+		end
+
+		-- Main name + count label (shift right if ionized tag exists)
 		local lbl = Instance.new("TextLabel")
 		lbl.BackgroundTransparency = 1
-		lbl.Position = UDim2.fromOffset(24, 0)
-		lbl.Size = UDim2.new(1, -24, 1, 0)
+		lbl.Position = UDim2.fromOffset(24 + (isIonizedMarked and (ionTagWidth + 6) or 0), 0)
+		lbl.Size = UDim2.new(1, -(24 + (isIonizedMarked and (ionTagWidth + 6) or 0)), 1, 0)
 		lbl.RichText = true
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
 		lbl.Font = Enum.Font.Gotham
 		lbl.TextSize = 13
 		lbl.ZIndex = 1
-		local checked = (activeSelection[oreName] == true)
-
-if checked then
-	-- normal (colored) look
-	lbl.Text = string.format(
-		'<font color="rgb(%d,%d,%d)">%s</font> <font color="rgb(200,200,200)">%d</font>',
-		r, g, b, oreName, count
-	)
-else
-	-- greyed out / disabled look
-	lbl.Text = string.format(
-		'<font color="rgb(140,140,140)">%s</font> <font color="rgb(120,120,120)">%d</font>',
-		oreName, count
-	)
-end
-
 		lbl.Parent = rowFrame
+
+		if checked then
+			lbl.Text = string.format(
+				'<font color="rgb(%d,%d,%d)">%s</font> <font color="rgb(200,200,200)">%d</font>',
+				r, g, b, oreName, count
+			)
+		else
+			lbl.Text = string.format(
+				'<font color="rgb(140,140,140)">%s</font> <font color="rgb(120,120,120)">%d</font>',
+				oreName, count
+			)
+		end
 	end
 end
+
 
 
 -- =================================
@@ -1272,49 +1412,63 @@ local totalAtStart = countSpawnedForSet(mySet)
 	local platform = createPlatform()
 
 	task.spawn(function()
-		-- Turn on noclip for the whole TP process
-		enableNoclip()
+	-- Turn on noclip for the whole TP process
+	enableNoclip()
 
-		local function finish()
-			disableNoclip()
-			if platform then platform:Destroy() end
-			tpButton.Text = "Start TP"
-			runningTP = false
-			tpProgress[myKey].running = false
-			if activeKey == myKey then updateProgressLabel() end
-		end
+	local function finish()
+		disableNoclip()
+		if platform then platform:Destroy() end
+		tpButton.Text = "Start TP"
+		runningTP = false
+		tpProgress[myKey].running = false
+		if activeKey == myKey then updateProgressLabel() end
+	end
 
-		if totalAtStart <= 0 then
-			finish()
-			return
-		end
+	if totalAtStart <= 0 then
+		finish()
+		return
+	end
 
-		while tpProgress[myKey].mined < totalAtStart do
-			local target
-			for _, obj in ipairs(mine:GetChildren()) do
-				local raw, stripped = variants(obj.Name)
-				if mySet[raw] or (stripped ~= "" and mySet[stripped]) then
+	while tpProgress[myKey].mined < totalAtStart do
+		local target
+
+		for _, obj in ipairs(mine:GetChildren()) do
+			local raw, stripped = variants(obj.Name)
+
+			if mySet[raw] or (stripped ~= "" and mySet[stripped]) then
+				local display = activeVariantToDisplay[raw]
+					or (stripped ~= "" and activeVariantToDisplay[stripped])
+					or nil
+
+				if display and activeIonizedMarked[display] then
+					if isIonizedOre(obj) then
+						target = obj
+						break
+					end
+				else
 					target = obj
 					break
 				end
 			end
-
-			if not target then break end
-
-			local ok = teleportToOre(target, platform)
-			if ok then
-				local gone = waitUntilOreGone(target, 30)
-				if gone then
-					tpProgress[myKey].mined += 1
-					if activeKey == myKey then updateProgressLabel() end
-				end
-			else
-				task.wait(0.1)
-			end
 		end
 
-		finish()
-	end)
+		if not target then break end
+
+		local ok = teleportToOre(target, platform)
+		if ok then
+			local gone = waitUntilOreGone(target, 30)
+			if gone then
+				tpProgress[myKey].mined += 1
+				if activeKey == myKey then updateProgressLabel() end
+			end
+		else
+			task.wait(0.1)
+		end
+	end
+
+	finish()
+end) --  closes task.spawn(function()
+
 end
 
 tpButton.MouseButton1Click:Connect(runOreLoop)
@@ -1367,9 +1521,3 @@ updateHC()
 setCategory("W1 Gear")
 refreshScannerUI()
 updateProgressLabel()
-local function setActiveTable(key)
-	if not ORE_TABLES[key] then return end
-	activeKey = key
-	activeOres = ORE_TABLES[key]
-	activeSet, activeVariantToDisplay = buildActiveMaps(activeOres)
-end
