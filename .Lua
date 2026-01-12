@@ -47,7 +47,7 @@ end
 -- =================================
 -- IONIZED ATTRIBUTE CHECK
 -- Supports:
---   ore:GetAttribute("variantType") == "ionized"  
+--   ore:GetAttribute("variantType") == "ionized"   
 --   ore:GetAttribute("Ionized") == true / "ionized" (optional support)
 -- Works for BasePart or Model (checks model + primary/first part)
 -- =================================
@@ -63,7 +63,7 @@ local function isIonizedOre(obj)
 
 	local v = readAttr(obj)
 
-	-- If it's a Model and the attribute isn't on the Model, try its parts
+	
 	if v == nil and obj and obj:IsA("Model") then
 		v = readAttr(obj.PrimaryPart)
 		if v == nil then
@@ -99,12 +99,7 @@ ORE_TABLES.default = {
 	"bluesteel",
 	"cobalt",
 	"turquenite",
-	"druzurite",
-	"iron",
-	"crystallized Stone",
-	"ice",
 }
-
 
 
 
@@ -129,7 +124,7 @@ ORE_TABLES.c_candle = {
 -- Elem T (ionized cobalt -> cobalt)
 ORE_TABLES.elem_t = {
 	"elementium","exoretic","azuryl","pasivium","polonium","poiseon","photoprisma","chromatite","nuummite",
-	"unobtainium","cobalt","alternium","vanadinite","prismatica","elysian","elusium","rainbowite","tanzanite",
+	"unobtainium","__IONIZED__","cobalt","alternium","vanadinite","prismatica","elysian","elusium","rainbowite","tanzanite",
 	"solid bromine","petrified wood","delectium","bluesteel","plutonium","petalite","chrysoberyl","galvanite",
 	"padparadscha","amber",
 }
@@ -198,7 +193,7 @@ ORE_TABLES.tpm = {
 -- Amb S (ionized olivine -> olivine)
 ORE_TABLES.amb_s = {
 	"lunar aether","lunar Ω","lunar trinitium","scarfyte","aether","ambrosia","sagittarius quasar",
-	"lunar halcyon emission","lunar dyronsinite","seraphrite","viverra","divinessence","olivine","theiograph",
+	"lunar halcyon emission","lunar dyronsinite","seraphrite","viverra","divinessence","__IONIZED__","olivine","theiograph",
 	"alexandrite","gilded gold","leryium","lunar cryotic","pyrite","ametrine","javanite","ancient bronze","bismuth",
 }
 
@@ -228,8 +223,8 @@ ORE_TABLES.soul_s = {
 -- POC (ionized removed)
 ORE_TABLES.poc = {
 	"neomandelite","celestivian","icarus","twilight mist","plasmonium","hexagelite","cosmic treasure","kaleidium",
-	"enchantium","accretite","voidflower","rosaraldyx","matterium","arctic crystal","quadratus","fracidial",
-	"nitoril","chromavitrite","coldstorm","plasmal","ignacaelum","auroralium","violixium","cestilade","powder snow",
+	"enchantium","accretite","voidflower","__IONIZED__","rosaraldyx","matterium","__IONIZED__","arctic crystal","quadratus","fracidial",
+	"nitoril","chromavitrite","coldstorm","plasmal","ignacaelum","auroralium","violixium","cestilade","__IONIZED__","powder snow",
 	"zenflow","tealine","culindrene","messier 92","pleskite","phendium","plerivium","blue giant","eboxylite",
 	"epidote","amazonite","protoplanetary disk","diopside","radisol","ekanite","andesine",
 }
@@ -258,7 +253,7 @@ ORE_TABLES.c_cb = {
 
 -- VV (ionized apatite -> apatite)
 ORE_TABLES.vv = {
-	"vitriol","catastormite","coselnix","torilite","apatite","the dream","coldstorm","lotivium","condensium","argon",
+	"vitriol","catastormite","coselnix","torilite","__IONIZED__","apatite","the dream","coldstorm","lotivium","condensium","argon",
 	"citrine","shroomite","arctic crystal","cirelin","powder snow","sphalerite","chlorodyrill","oligoclase",
 }
 
@@ -269,7 +264,7 @@ ORE_TABLES.cc = {
 
 ORE_TABLES.oo = {
 	"obliveracy endmost","stazenium","nemolite","void’s iris","cestilade","fluorite","luminaweb","illuded light",
-	"xenotime","chiron",
+	"xenotime","chiron","lunalistone",
 }
 
 ORE_TABLES.ss_t = {
@@ -322,7 +317,7 @@ ORE_TABLES.cyber_d = {
 -- Cod3 B (ionized c matrix -> c matrix)
 ORE_TABLES.cod3_b = {
 	"m4trix","terascental","revonet","mk2 sonar","poor connection","retronium","hedron","subject.greenlight","teevox g",
-	"matrixly","hypersulon","scantron","zelenite","c matrix","holographite","convexium","ram","meshtin","matrix remnant","hash",
+	"matrixly","hypersulon","scantron","zelenite","__IONIZED__","c matrix","holographite","convexium","ram","meshtin","matrix remnant","hash",
 }
 
 ORE_TABLES.g_light = {
@@ -334,8 +329,8 @@ ORE_TABLES.g_light = {
 -- MURD-E (delta fixed; ionized removed)
 ORE_TABLES.murd_e = {
 	"monocritica","32-bit integer limit","novurbite","Δ","matrixalga","hiderae","speedulant","cyberillic","oscilline","limelight",
-	"lunar codex","polonium","bug","noise","pyrite","kadabstrum","turnfire","zalgrain","turquoise","ad-on","stilomite","alternium",
-	"gauzian","projectron","decimate","vanadinite","rgb","edmium","monoshade","banbox","vitridian","override","hackware",
+	"lunar codex","polonium","bug","__IONIZED__","noise","__IONIZED__","pyrite","kadabstrum","turnfire","zalgrain","__IONIZED__","turquoise","__IONIZED__","ad-on","stilomite","alternium",
+	"gauzian","projectron","decimate","vanadinite","rgb","edmium","monoshade","banbox","vitridian","override","hackware","__IONIZED__",
 	"tiers.common","vector3","inflectium","diginix","defect","plutonium","iris","matricube","black opal","gridulyx",
 	"ancient bronze","nullum","math.random","jaxite",
 }
@@ -422,7 +417,7 @@ ORE_TABLES.parasol = {
 	"abyssium","snowsled","beachball","nixalis","mystifall","passionblaze","solar haze","jollinyte","infrapolus","cucurbite",
 	"candy vortex","cublextirye","peppernite","compact snow","breezeflow","vermillion","incandescine","peppermist","bandeau",
 	"peppermint core","kahakaimar","corazmore","fizzyglass","orenament","snowball","pinappore","tannimbar","clawvern","starrine",
-	"cadaverite","teslacane","spiravix","animatether","splashium","popsiclice","cancornite","velvelicacy","crimson","vantaglass",
+	"cadaverite","teslacane","spiravix","animatether","splashium","popsiclice","cancornite","velvelicacy","__IONIZED__","crimson","vantaglass",
 	"snowman shard","bitumite","hot cacaoite","solaurum","raydelium","frostnip","chocolatine","hydroclase","fernium","lost soul",
 	"scoria","hallowite","cookium","frenikyte","literolite","siltstone",
 }
@@ -1467,7 +1462,7 @@ local totalAtStart = countSpawnedForSet(mySet)
 	end
 
 	finish()
-end) --  closes task.spawn(function()
+end) -- ✅ closes task.spawn(function()
 
 end
 
